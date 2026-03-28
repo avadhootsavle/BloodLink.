@@ -236,10 +236,16 @@ label {
   width: 100%;
 }
 
+label,
+button {
+  box-sizing: border-box;
+}
+
 input,
 select,
 textarea {
   width: 100%;
+  box-sizing: border-box;
   background: #ffffff;
   border: 1px solid rgba(17, 7, 10, 0.12);
   border-radius: 12px;
@@ -440,7 +446,7 @@ textarea:focus {
 
 .login-grid {
   max-width: 820px;
-  margin: 0 auto;
+  margin: 2rem auto 0;
   grid-template-columns: 1fr;
 }
 
@@ -456,6 +462,7 @@ textarea:focus {
 .login-grid input,
 .login-grid select {
   width: 100%;
+  box-sizing: border-box;
   background: #ffffff;
   border: 1px solid var(--border);
   border-radius: 12px;

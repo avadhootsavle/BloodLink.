@@ -138,7 +138,7 @@ const Donate = () => {
           </div>
 
           <form className="form" onSubmit={handleDonationSubmit} style={{ borderTop: '1px solid #eaeaea', paddingTop: '1.5rem' }}>
-            <div className="form__row" style={{ flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', padding: '1rem', backgroundColor: '#f9f9f9', borderRadius: '8px', border: '1px solid #eee' }}>
                 <div className="toggle-switch">
                   <input 
