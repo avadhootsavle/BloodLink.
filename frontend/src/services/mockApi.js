@@ -144,11 +144,10 @@ export const consumeDonation = async (id, hospitalId) => {
     body: JSON.stringify({ id, hospitalId }),
   });
   if (!res.ok) throw new Error('Failed to consume unit');
-  const data = await res.json();
-  return data.inventory;
+  return res.json();
 };
 
-export const addRequest = (payload, actor) => {
+export const addRequest = async (payload, actor) => {
   const store = readStore();
   const record = {
     id: `req-${Date.now()}`,
@@ -164,13 +163,38 @@ export const addRequest = (payload, actor) => {
 
   store.requests = [record, ...store.requests].slice(0, 50);
   writeStore(store);
-  fetch(`${API_BASE}/requests`, {
+  const res = await fetch(`${API_BASE}/requests`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(record),
-  }).catch(() => {});
+  });
 
-  return { requests: store.requests, record };
+  if (!res.ok) {
+    const error = await res.json().catch(async () => ({ message: await res.text() }));
+    throw new Error(error.message || 'Failed to create emergency request');
+  }
+
+  const data = await res.json();
+  const serverRecord = data.request
+    ? {
+        ...record,
+        id: data.request._id || record.id,
+        createdAt: data.request.createdAt || record.createdAt,
+      }
+    : record;
+
+  const updatedRequests = [serverRecord, ...store.requests.filter((item) => item.id !== record.id)].slice(0, 50);
+  writeStore({ ...store, requests: updatedRequests });
+
+  return {
+    requests: updatedRequests,
+    record: serverRecord,
+    totalMatches: data.totalMatches || 0,
+    notifiedCount: data.notifiedCount || 0,
+    preview: data.preview || [],
+    emailEnabled: data.emailEnabled,
+    emailErrors: data.emailErrors || [],
+  };
 };
 
 export const findMatches = (neededType) => {

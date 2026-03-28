@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const app = express();
@@ -48,6 +49,92 @@ const bloodTransferSchema = new mongoose.Schema({
 });
 
 const BloodTransfer = mongoose.model('BloodTransfer', bloodTransferSchema);
+
+const emergencyRequestSchema = new mongoose.Schema({
+  bloodType: { type: String, required: true },
+  units: { type: Number, required: true },
+  city: { type: String, default: '' },
+  urgency: { type: String, default: 'Critical' },
+  clinicalReason: { type: String, default: '' },
+  requestedBy: { type: String, default: 'Hospital' },
+  contact: { type: String, default: '' },
+  totalMatches: { type: Number, default: 0 },
+  notifiedCount: { type: Number, default: 0 },
+  notifiedDonors: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  createdAt: { type: Date, default: Date.now }
+});
+
+const EmergencyRequest = mongoose.model('EmergencyRequest', emergencyRequestSchema);
+
+const bloodCompatibility = {
+  'O-': ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'],
+  'O+': ['O+', 'A+', 'B+', 'AB+'],
+  'A-': ['A-', 'A+', 'AB-', 'AB+'],
+  'A+': ['A+', 'AB+'],
+  'B-': ['B-', 'B+', 'AB-', 'AB+'],
+  'B+': ['B+', 'AB+'],
+  'AB-': ['AB-', 'AB+'],
+  'AB+': ['AB+'],
+};
+
+const isCompatible = (available, needed) => bloodCompatibility[available]?.includes(needed) ?? false;
+
+const getMailer = () => {
+  const { EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS } = process.env;
+  if (!EMAIL_HOST || !EMAIL_PORT || !EMAIL_USER || !EMAIL_PASS) return null;
+
+  return nodemailer.createTransport({
+    host: EMAIL_HOST,
+    port: Number(EMAIL_PORT),
+    secure: Number(EMAIL_PORT) === 465,
+    auth: {
+      user: EMAIL_USER,
+      pass: EMAIL_PASS,
+    },
+  });
+};
+
+const buildEmergencyEmail = ({ donor, request }) => {
+  const subject = `Emergency blood request: ${request.bloodType} needed`;
+  const fromLine = request.requestedBy || 'Hospital';
+  const cityLine = request.city || 'your area';
+  const contactLine = request.contact || 'Contact available in BloodLink';
+  const reasonLine = request.clinicalReason || 'Emergency blood requirement';
+
+  return {
+    subject,
+    text: [
+      `Hello ${donor.name || 'Donor'},`,
+      '',
+      `A hospital has raised an emergency request for ${request.bloodType} blood in ${cityLine}.`,
+      `Units needed: ${request.units}.`,
+      `Requested by: ${fromLine}.`,
+      `Reason: ${reasonLine}.`,
+      `Callback contact: ${contactLine}.`,
+      '',
+      'If you are available to donate, please respond as soon as possible.',
+      '',
+      'BloodLink',
+    ].join('\n'),
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f1f1f;">
+        <p>Hello ${donor.name || 'Donor'},</p>
+        <p>
+          A hospital has raised an <strong>emergency request</strong> for
+          <strong>${request.bloodType}</strong> blood in <strong>${cityLine}</strong>.
+        </p>
+        <p>
+          <strong>Units needed:</strong> ${request.units}<br />
+          <strong>Requested by:</strong> ${fromLine}<br />
+          <strong>Reason:</strong> ${reasonLine}<br />
+          <strong>Callback contact:</strong> ${contactLine}
+        </p>
+        <p>If you are available to donate, please respond as soon as possible.</p>
+        <p>BloodLink</p>
+      </div>
+    `,
+  };
+};
 
 // Routes
 app.post('/api/signup', async (req, res) => {
@@ -170,8 +257,11 @@ const getInventory = async () => {
 app.get('/api/state', async (req, res) => {
   try {
     const inventory = await getInventory();
-    // Fallbacks for arrays that are not fully migrated yet
-    res.json({ inventory, requests: [], hospitals: [] });
+    const requests = await EmergencyRequest.find({})
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+    res.json({ inventory, requests, hospitals: [] });
   } catch (err) {
     console.error('State error:', err);
     res.status(500).json({ message: 'Database connection error' });
@@ -218,17 +308,110 @@ app.post('/api/inventory', async (req, res) => {
   }
 });
 
-app.post('/api/requests', (req, res) => {
-  res.status(201).json({ message: 'Database connection pending for requests' });
+app.post('/api/requests', async (req, res) => {
+  try {
+    const request = {
+      bloodType: req.body.bloodType,
+      units: Number(req.body.units || 0),
+      city: req.body.city || '',
+      urgency: req.body.urgency || 'Critical',
+      clinicalReason: req.body.clinicalReason || '',
+      requestedBy: req.body.requestedBy || 'Hospital',
+      contact: req.body.contact || '',
+    };
+
+    if (!request.bloodType || request.units < 1) {
+      return res.status(400).json({ message: 'Blood type and units are required.' });
+    }
+
+    const candidateDonors = await User.find({
+      role: 'Individual donor',
+      isReadyToDonate: true,
+      emergencyContact: true,
+      email: { $exists: true, $ne: '' },
+    });
+
+    const matches = candidateDonors.filter((donor) => {
+      const bloodMatch = isCompatible(donor.bloodGroup, request.bloodType);
+      if (!bloodMatch) return false;
+      if (!request.city) return true;
+      return donor.city?.toLowerCase() === request.city.toLowerCase();
+    });
+
+    const savedRequest = await EmergencyRequest.create({
+      ...request,
+      totalMatches: matches.length,
+      notifiedDonors: matches.map((donor) => donor._id),
+    });
+
+    const mailer = getMailer();
+    let notifiedCount = 0;
+    let emailErrors = [];
+
+    if (mailer && matches.length) {
+      const sendResults = await Promise.allSettled(
+        matches.map((donor) => {
+          const message = buildEmergencyEmail({ donor, request });
+          return mailer.sendMail({
+            from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+            to: donor.email,
+            subject: message.subject,
+            text: message.text,
+            html: message.html,
+          });
+        }),
+      );
+
+      notifiedCount = sendResults.filter((result) => result.status === 'fulfilled').length;
+      emailErrors = sendResults
+        .filter((result) => result.status === 'rejected')
+        .map((result) => result.reason?.message || 'Unknown email error');
+    }
+
+    savedRequest.notifiedCount = notifiedCount;
+    await savedRequest.save();
+
+    const preview = matches.slice(0, 5).map((donor) => ({
+      id: donor._id,
+      donorName: donor.name,
+      bloodType: donor.bloodGroup,
+      city: donor.city,
+      email: donor.email,
+    }));
+
+    res.status(201).json({
+      request: savedRequest,
+      totalMatches: matches.length,
+      notifiedCount,
+      preview,
+      emailEnabled: Boolean(mailer),
+      emailErrors,
+      message: matches.length
+        ? 'Emergency request created and donors processed.'
+        : 'Emergency request created, but no compatible ready donors were found.',
+    });
+  } catch (error) {
+    console.error('Request error:', error);
+    res.status(500).json({ message: 'Failed to create emergency request.' });
+  }
 });
 
 app.post('/api/inventory/consume', async (req, res) => {
   try {
     const { id: donorId, hospitalId } = req.body;
-    
-    // Mark donor as no longer ready
-    await User.findByIdAndUpdate(donorId, { isReadyToDonate: false });
-    
+
+    const donor = await User.findByIdAndUpdate(
+      donorId,
+      { isReadyToDonate: false },
+      { new: true }
+    );
+
+    if (!donor) {
+      return res.status(404).json({ message: 'Donor not found.' });
+    }
+
+    const hospital = hospitalId ? await User.findById(hospitalId) : null;
+
     // Create the transfer record mapping the hospital to the donor
     if (hospitalId) {
       const transfer = new BloodTransfer({
@@ -238,10 +421,61 @@ app.post('/api/inventory/consume', async (req, res) => {
       });
       await transfer.save();
     }
-    
+
+    let emailSent = false;
+    let emailError = '';
+    const mailer = getMailer();
+
+    if (mailer && donor.email) {
+      try {
+        await mailer.sendMail({
+          from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+          to: donor.email,
+          subject: `Blood required by ${hospital?.organization || 'a hospital'}`,
+          text: [
+            `Hello ${donor.name || 'Donor'},`,
+            '',
+            `${hospital?.organization || 'A hospital'} has requested your blood donation.`,
+            `Blood type required: ${donor.bloodGroup || 'Your registered group'}.`,
+            `Hospital city: ${hospital?.city || 'Not provided'}.`,
+            `Hospital contact: ${hospital?.email || 'Available in BloodLink'}.`,
+            '',
+            'Please log in to BloodLink and respond as soon as possible.',
+            '',
+            'BloodLink',
+          ].join('\n'),
+          html: `
+            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f1f1f;">
+              <p>Hello ${donor.name || 'Donor'},</p>
+              <p>
+                <strong>${hospital?.organization || 'A hospital'}</strong> has requested your blood donation.
+              </p>
+              <p>
+                <strong>Blood type required:</strong> ${donor.bloodGroup || 'Your registered group'}<br />
+                <strong>Hospital city:</strong> ${hospital?.city || 'Not provided'}<br />
+                <strong>Hospital contact:</strong> ${hospital?.email || 'Available in BloodLink'}
+              </p>
+              <p>Please log in to BloodLink and respond as soon as possible.</p>
+              <p>BloodLink</p>
+            </div>
+          `,
+        });
+        emailSent = true;
+      } catch (error) {
+        emailError = error.message || 'Failed to send donor email';
+        console.error('Consume email error:', error);
+      }
+    }
+
     // Return updated inventory
     const inventory = await getInventory();
-    res.json({ inventory });
+    res.json({
+      inventory,
+      emailSent,
+      emailError,
+      donorEmail: donor.email || '',
+      donorName: donor.name || 'Donor',
+    });
   } catch (err) {
     console.error('Consume error:', err);
     res.status(500).json({ message: 'Error consuming unit' });

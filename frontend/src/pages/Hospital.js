@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import useAppData from '../hooks/useAppData';
-import { addRequest, consumeDonation, findMatches } from '../services/mockApi';
+import { addRequest, consumeDonation } from '../services/mockApi';
 
 const bloodTypes = ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'];
 
@@ -82,37 +82,52 @@ const Hospital = () => {
 
   const handleTakeDonation = async (id) => {
     try {
-      const updated = await consumeDonation(id, session.id);
-      setInventory(updated);
+      const result = await consumeDonation(id, session.id);
+      setInventory(result.inventory || []);
+      if (result.emailSent) {
+        window.alert(`Email sent to ${result.donorName} at ${result.donorEmail}.`);
+      } else if (result.emailError) {
+        window.alert(`Unit assigned, but email failed: ${result.emailError}`);
+      } else {
+        window.alert('Unit assigned. No donor email was sent.');
+      }
     } catch (err) {
       console.error('Failed to take donation:', err);
     }
   };
 
-  const handleEmergencyAlert = (event) => {
+  const handleEmergencyAlert = async (event) => {
     event.preventDefault();
-    const matches = findMatches(emergencyForm.bloodType).filter((m) =>
-      emergencyForm.city ? m.city?.toLowerCase() === emergencyForm.city.toLowerCase() : true,
-    );
-
-    const { requests: updatedRequests } = addRequest(
-      {
-        bloodType: emergencyForm.bloodType,
-        units: emergencyForm.units,
-        city: emergencyForm.city || session?.organization || '',
-        urgency: 'Critical',
-        clinicalReason: emergencyForm.clinicalReason || 'Emergency alert',
-        requestedBy: session?.organization || session?.name || 'Hospital',
-        contact: emergencyForm.contact || session?.email || 'On file',
-      },
-      session,
-    );
-    setRequests(updatedRequests);
-
-    setAlertResult({
-      total: matches.length,
-      preview: matches.slice(0, 3),
-    });
+    try {
+      const result = await addRequest(
+        {
+          bloodType: emergencyForm.bloodType,
+          units: emergencyForm.units,
+          city: emergencyForm.city || session?.organization || '',
+          urgency: 'Critical',
+          clinicalReason: emergencyForm.clinicalReason || 'Emergency alert',
+          requestedBy: session?.organization || session?.name || 'Hospital',
+          contact: emergencyForm.contact || session?.email || 'On file',
+        },
+        session,
+      );
+      setRequests(result.requests);
+      setAlertResult({
+        total: result.totalMatches,
+        notifiedCount: result.notifiedCount,
+        preview: result.preview,
+        emailEnabled: result.emailEnabled,
+        emailErrors: result.emailErrors,
+      });
+    } catch (err) {
+      setAlertResult({
+        total: 0,
+        notifiedCount: 0,
+        preview: [],
+        emailEnabled: false,
+        emailErrors: [err.message],
+      });
+    }
   };
 
   const loggedIn = Boolean(session);
@@ -211,21 +226,28 @@ const Hospital = () => {
           {alertResult ? (
             <div className="inventory-list" style={{ marginTop: '0.6rem' }}>
               <p className="hint">
-                Alert dispatched. Found {alertResult.total} compatible donor entr{alertResult.total === 1 ? 'y' : 'ies'}
-                {alertResult.preview.length ? ' to notify:' : '.'}
+                Alert dispatched. Found {alertResult.total} compatible donor entr{alertResult.total === 1 ? 'y' : 'ies'}.
+                {alertResult.emailEnabled
+                  ? ` Email sent to ${alertResult.notifiedCount} donor${alertResult.notifiedCount === 1 ? '' : 's'}.`
+                  : ' Email sending is not configured yet.'}
               </p>
+              {alertResult.emailErrors?.length ? (
+                <p className="hint" style={{ color: '#8f1021' }}>
+                  Email issue: {alertResult.emailErrors[0]}
+                </p>
+              ) : null}
               {alertResult.preview.map((match) => (
                 <div key={match.id} className="inventory-row">
                   <div className="pill pill--ghost">{match.bloodType}</div>
                   <div className="inventory-row__meta">
-                    <h4>{match.hospital || 'Verified donor'}</h4>
+                    <h4>{match.donorName || 'Verified donor'}</h4>
                     <p className="hint">
-                      {match.units} units · {match.city || 'No city'} · {match.status || 'Available'}
+                      {match.city || 'No city'} · Ready donor
                     </p>
                   </div>
                   <div className="inventory-row__contact">
                     <p className="inventory-row__contact-label">Contact</p>
-                    <p>{match.contact || 'On file'}</p>
+                    <p>{match.email || 'On file'}</p>
                   </div>
                 </div>
               ))}
