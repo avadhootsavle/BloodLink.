@@ -17,6 +17,7 @@ const Navbar = () => {
   const isIndividual = session?.role === 'Individual donor';
   const donateHref = loggedIn && isIndividual ? '/donate' : '/login';
   const receiveHref = loggedIn && isHospital ? '/hospital' : '/login';
+  const logsHref = isHospital ? '/hospital-logs' : '/donor-logs';
   const showDonateLink = !isHospital;
   const showReceiveLink = isHospital;
 
@@ -24,7 +25,12 @@ const Navbar = () => {
     <header className="navbar">
       <div className="navbar__inner">
         <div className="navbar__brand">
-          <span className="navbar__logo">Blood<span>Link</span></span>
+          <span className="navbar__logo">
+            <span className="navbar__heart" aria-hidden="true">
+              <span className="navbar__heart-beat" />
+            </span>
+            Blood<span>Link</span>
+          </span>
           <span className="navbar__pill">Trusted</span>
         </div>
         <nav className="navbar__links" aria-label="Primary">
@@ -39,6 +45,11 @@ const Navbar = () => {
           {showReceiveLink && (
             <a href={receiveHref} className="navbar__link">
               Receive
+            </a>
+          )}
+          {loggedIn && (
+            <a href={logsHref} className="navbar__link">
+              Logs
             </a>
           )}
           <a href="/about" className="navbar__link">

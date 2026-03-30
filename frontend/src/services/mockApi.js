@@ -12,6 +12,20 @@ const seedData = {
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
+const parseResponse = async (res) => {
+  const text = await res.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    if (text.startsWith('Proxy error')) {
+      throw new Error('Backend server is not reachable.');
+    }
+    throw new Error(text);
+  }
+};
+
 const writeStore = (store) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
   return store;
@@ -39,7 +53,7 @@ export const syncFromBackend = async () => {
   try {
     const res = await fetch(`${API_BASE}/state`, { cache: 'no-store' });
     if (!res.ok) throw new Error('Failed');
-    const data = await res.json();
+    const data = await parseResponse(res);
     writeStore({
       inventory: data.inventory || [],
       requests: data.requests || [],
@@ -79,10 +93,10 @@ export const loginUser = async (credentials) => {
     body: JSON.stringify(credentials),
   });
   if (!res.ok) {
-    const error = await res.json();
+    const error = await parseResponse(res);
     throw new Error(error.message || 'Login failed');
   }
-  const data = await res.json();
+  const data = await parseResponse(res);
   localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
   return data.user;
 };
@@ -94,11 +108,53 @@ export const signupUser = async (payload) => {
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
-    const error = await res.json();
+    const error = await parseResponse(res);
     throw new Error(error.message || 'Signup failed');
   }
-  const data = await res.json();
+  const data = await parseResponse(res);
   localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
+  return data.user;
+};
+
+export const requestSignupOtp = async (payload) => {
+  const res = await fetch(`${API_BASE}/signup/request-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await parseResponse(res);
+  if (!res.ok) {
+    throw new Error(data?.message || 'Failed to send verification code');
+  }
+  return data;
+};
+
+export const verifySignupOtp = async ({ email, otp }) => {
+  const res = await fetch(`${API_BASE}/signup/verify-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, otp }),
+  });
+  const data = await parseResponse(res);
+  if (!res.ok) {
+    throw new Error(data?.message || 'Failed to verify code');
+  }
+  localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
+  return data.user;
+};
+
+export const updateProfilePhoto = async ({ userId, profilePhoto }) => {
+  const res = await fetch(`${API_BASE}/user/${userId}/profile-photo`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ profilePhoto }),
+  });
+  const data = await parseResponse(res);
+  if (!res.ok) {
+    throw new Error(data?.message || 'Failed to update profile photo');
+  }
+  localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
+  window.dispatchEvent(new Event('storage'));
   return data.user;
 };
 
@@ -126,7 +182,7 @@ export const updateDonorStatus = async (payload, actor) => {
   });
   
   if (!res.ok) throw new Error('Failed to update status');
-  const data = await res.json();
+  const data = await parseResponse(res);
   
   // Persist updated user session gracefully if provided
   if (data.user) {
@@ -144,7 +200,7 @@ export const consumeDonation = async (id, hospitalId) => {
     body: JSON.stringify({ id, hospitalId }),
   });
   if (!res.ok) throw new Error('Failed to consume unit');
-  return res.json();
+  return parseResponse(res);
 };
 
 export const addRequest = async (payload, actor) => {
@@ -170,11 +226,11 @@ export const addRequest = async (payload, actor) => {
   });
 
   if (!res.ok) {
-    const error = await res.json().catch(async () => ({ message: await res.text() }));
+    const error = await parseResponse(res).catch((err) => ({ message: err.message }));
     throw new Error(error.message || 'Failed to create emergency request');
   }
 
-  const data = await res.json();
+  const data = await parseResponse(res);
   const serverRecord = data.request
     ? {
         ...record,
@@ -214,8 +270,18 @@ export const fetchTransfers = async (userId) => {
   if (!userId) return [];
   const res = await fetch(`${API_BASE}/transfers/${userId}`);
   if (!res.ok) throw new Error('Failed to fetch transfers');
-  const data = await res.json();
+  const data = await parseResponse(res);
   return data.transfers || [];
+};
+
+export const fetchDonorBadges = async (userId) => {
+  if (!userId) return null;
+  const res = await fetch(`${API_BASE}/donors/${userId}/badges`);
+  const data = await parseResponse(res);
+  if (!res.ok) {
+    throw new Error(data?.message || 'Failed to fetch donor badges');
+  }
+  return data;
 };
 
 export const completeTransfer = async (transferId) => {
@@ -223,7 +289,15 @@ export const completeTransfer = async (transferId) => {
     method: 'PATCH',
   });
   if (!res.ok) throw new Error('Failed to complete transfer');
-  return res.json();
+  return parseResponse(res);
+};
+
+export const acceptTransfer = async (transferId) => {
+  const res = await fetch(`${API_BASE}/transfers/${transferId}/accept`, {
+    method: 'PATCH',
+  });
+  if (!res.ok) throw new Error('Failed to accept transfer');
+  return parseResponse(res);
 };
 
 export const rejectTransfer = async (transferId) => {
@@ -231,5 +305,5 @@ export const rejectTransfer = async (transferId) => {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error('Failed to reject transfer');
-  return res.json();
+  return parseResponse(res);
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signupUser } from '../services/mockApi';
+import { requestSignupOtp, verifySignupOtp } from '../services/mockApi';
 
 
 
@@ -11,6 +11,7 @@ const Signup = () => {
   const [form, setForm] = useState({
     name: '',
     email: '',
+    contactNumber: '',
     password: '',
     organization: '',
     role: 'Individual donor',
@@ -21,6 +22,10 @@ const Signup = () => {
     location: null
   });
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpRequested, setOtpRequested] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [locationError, setLocationError] = useState('');
   const [userPosition, setUserPosition] = useState(null);
   const [leafletReady, setLeafletReady] = useState(false);
@@ -126,6 +131,7 @@ const Signup = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
+    setMessage('');
     
     if (form.role === 'Individual donor') {
       const dob = new Date(form.birthdate);
@@ -134,18 +140,43 @@ const Signup = () => {
       if (m < 0 || (m === 0 && new Date().getDate() < dob.getDate())) {
         calcAge--;
       }
-      if (calcAge < 18) {
-        setError('You must be at least 18 years old to sign up as a donor.');
+      if (calcAge < 18 || calcAge > 65) {
+        setError('Donor age must be between 18 and 65 years.');
         return;
       }
     }
 
     try {
-      await signupUser(form);
+      setSubmitting(true);
+      await requestSignupOtp(form);
+      setOtpRequested(true);
+      setMessage('Verification code sent. Check your email and enter the OTP below.');
+    } catch (err) {
+      setError(err.message || 'Failed to send verification code.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleVerifyOtp = async (event) => {
+    event.preventDefault();
+    setError('');
+    setMessage('');
+
+    if (!otp.trim()) {
+      setError('Enter the verification code sent to your email.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await verifySignupOtp({ email: form.email, otp });
       navigate('/');
       window.dispatchEvent(new Event('storage'));
     } catch (err) {
-      setError(err.message || 'Signup failed.');
+      setError(err.message || 'OTP verification failed.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -169,8 +200,9 @@ const Signup = () => {
             </div>
           </div>
 
-          <form className="form" onSubmit={handleSubmit}>
+          <form className="form" onSubmit={otpRequested ? handleVerifyOtp : handleSubmit}>
             {error && <p className="hint" style={{ color: 'red' }}>{error}</p>}
+            {message && <p className="hint" style={{ color: 'green' }}>{message}</p>}
             
             <div className="role-switch">
               {['Individual donor', 'Hospital'].map((roleOption) => (
@@ -205,6 +237,16 @@ const Signup = () => {
                     required
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     placeholder="Full Name"
+                  />
+                </label>
+                <label>
+                  Contact number
+                  <input
+                    type="tel"
+                    value={form.contactNumber}
+                    required
+                    onChange={(e) => setForm({ ...form, contactNumber: e.target.value })}
+                    placeholder="Enter phone number"
                   />
                 </label>
                 <div className="form__row">
@@ -246,16 +288,28 @@ const Signup = () => {
             )}
 
             {form.role === 'Hospital' && (
-              <label>
-                Hospital name
-                <input
-                  type="text"
-                  value={form.organization}
-                  required
-                  onChange={(e) => setForm({ ...form, organization: e.target.value })}
-                  placeholder="Hospital / Bank name"
-                />
-              </label>
+              <>
+                <label>
+                  Hospital name
+                  <input
+                    type="text"
+                    value={form.organization}
+                    required
+                    onChange={(e) => setForm({ ...form, organization: e.target.value })}
+                    placeholder="Hospital / Bank name"
+                  />
+                </label>
+                <label>
+                  Contact number
+                  <input
+                    type="tel"
+                    value={form.contactNumber}
+                    required
+                    onChange={(e) => setForm({ ...form, contactNumber: e.target.value })}
+                    placeholder="Hospital contact number"
+                  />
+                </label>
+              </>
             )}
 
             <label>
@@ -315,9 +369,46 @@ const Signup = () => {
               />
             </label>
 
-            <button type="submit" className="btn btn--primary">
-              Create Account
+            {otpRequested && (
+              <label>
+                Email verification code
+                <input
+                  type="text"
+                  value={otp}
+                  required
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="Enter 6-digit OTP"
+                />
+              </label>
+            )}
+
+            <button type="submit" className="btn btn--primary" disabled={submitting}>
+              {submitting
+                ? (otpRequested ? 'Verifying...' : 'Sending OTP...')
+                : (otpRequested ? 'Verify OTP & Create Account' : 'Send OTP')}
             </button>
+            {otpRequested && (
+              <button
+                type="button"
+                className="btn btn--ghost"
+                disabled={submitting}
+                onClick={async () => {
+                  setError('');
+                  setMessage('');
+                  try {
+                    setSubmitting(true);
+                    await requestSignupOtp(form);
+                    setMessage('A new verification code has been sent to your email.');
+                  } catch (err) {
+                    setError(err.message || 'Failed to resend verification code.');
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}
+              >
+                Resend OTP
+              </button>
+            )}
             <p className="hint" style={{ textAlign: 'center', marginTop: '1rem' }}>
               Already have an account? <Link to="/login">Log in here</Link>.
             </p>

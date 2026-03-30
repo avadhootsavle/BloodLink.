@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { loginUser, getSession } from '../services/mockApi';
+import { loginUser } from '../services/mockApi';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -11,8 +11,8 @@ const Login = () => {
     event.preventDefault();
     setError('');
     try {
-      await loginUser(form);
-      navigate('/');
+      const user = await loginUser(form);
+      navigate(user?.profilePhoto ? '/' : '/profile');
       // Trigger a storage event manually to update hooks across the app
       window.dispatchEvent(new Event('storage'));
     } catch (err) {

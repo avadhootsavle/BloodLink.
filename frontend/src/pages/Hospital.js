@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import useAppData from '../hooks/useAppData';
 import { addRequest, consumeDonation, fetchTransfers, completeTransfer } from '../services/mockApi';
+import { emitToast } from '../components/ToastProvider';
 
 const bloodTypes = ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'];
 
@@ -12,6 +13,19 @@ const cityCoordinates = {
 };
 
 const getCoordsForCity = (city) => cityCoordinates[city?.toLowerCase()] || null;
+
+const getAge = (birthdate) => {
+  if (!birthdate) return null;
+  const dob = new Date(birthdate);
+  if (Number.isNaN(dob.getTime())) return null;
+
+  let age = new Date().getFullYear() - dob.getFullYear();
+  const monthDiff = new Date().getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && new Date().getDate() < dob.getDate())) {
+    age--;
+  }
+  return age;
+};
 
 const Hospital = () => {
   const { session, inventory, setInventory, setRequests } = useAppData();
@@ -92,14 +106,31 @@ const Hospital = () => {
       const updatedTransfers = await fetchTransfers(session.id);
       setTransfers(updatedTransfers);
       if (result.emailSent) {
-        window.alert(`Email sent to ${result.donorName} at ${result.donorEmail}.`);
+        emitToast({
+          title: 'Request sent',
+          message: `Email sent to ${result.donorName} at ${result.donorEmail}.`,
+          type: 'success',
+        });
       } else if (result.emailError) {
-        window.alert(`Unit assigned, but email failed: ${result.emailError}`);
+        emitToast({
+          title: 'Email issue',
+          message: `Unit assigned, but email failed: ${result.emailError}`,
+          type: 'warning',
+        });
       } else {
-        window.alert('Unit assigned. No donor email was sent.');
+        emitToast({
+          title: 'Unit assigned',
+          message: 'Unit assigned. No donor email was sent.',
+          type: 'info',
+        });
       }
     } catch (err) {
       console.error('Failed to take donation:', err);
+      emitToast({
+        title: 'Request failed',
+        message: err.message || 'Failed to assign the unit.',
+        type: 'warning',
+      });
     }
   };
 
@@ -124,6 +155,11 @@ const Hospital = () => {
         emailEnabled: result.emailEnabled,
         emailErrors: result.emailErrors,
       });
+      emitToast({
+        title: 'Emergency alert sent',
+        message: `Matched ${result.totalMatches} donor${result.totalMatches === 1 ? '' : 's'} and emailed ${result.notifiedCount}.`,
+        type: 'success',
+      });
     } catch (err) {
       setAlertResult({
         total: 0,
@@ -131,6 +167,11 @@ const Hospital = () => {
         preview: [],
         emailEnabled: false,
         emailErrors: [err.message],
+      });
+      emitToast({
+        title: 'Emergency alert failed',
+        message: err.message || 'Could not send the alert.',
+        type: 'warning',
       });
     }
   };
@@ -295,15 +336,19 @@ const Hospital = () => {
                   <div className="pill pill--ghost">{item.bloodType}</div>
                   <div className="inventory-row__meta">
                     <h4>
-                      {item.units} units · {item.hospital}
+                      {item.donorName || 'Verified donor'}
                     </h4>
                     <p className="hint">
-                      {item.city} · {item.status}
+                      Age: {item.age ?? 'N/A'} · Blood Type: {item.bloodType || 'N/A'}
+                    </p>
+                    <p className="hint">
+                      Address: {item.address || item.city || 'Not provided'}
                     </p>
                   </div>
                   <div className="inventory-row__contact">
                     <p className="inventory-row__contact-label">Contact</p>
-                    <p>{item.contact}</p>
+                    <p>{item.contactNumber || 'Phone not provided'}</p>
+                    <p className="hint">{item.email || 'Email not provided'}</p>
                     {dist ? <p className="hint">~{dist} km away</p> : null}
                   </div>
                   <button className="btn btn--ghost" onClick={() => handleTakeDonation(item.id)}>
@@ -323,23 +368,30 @@ const Hospital = () => {
               <h3>Donors you have requested</h3>
               <p className="hint">Track the blood units you have claimed from individual donors.</p>
             </div>
-            <div className="pill pill--warning" style={{ color: '#d97706', borderColor: '#fcd34d', backgroundColor: '#fef3c7' }}>In Progress</div>
+            <div className="pill pill--warning" style={{ color: '#d97706', borderColor: '#fcd34d', backgroundColor: '#fef3c7' }}>Pending / Accepted</div>
           </div>
           <div className="inventory-list">
-            {transfers.filter(tx => tx.status === 'In Progress').map((tx) => (
+            {transfers.filter(tx => tx.status === 'In Progress' || tx.status === 'Accepted').map((tx) => (
               <div key={tx._id} className="inventory-row">
                 <div className="pill pill--ghost">{tx.donorId?.bloodGroup || '?'}</div>
                 <div className="inventory-row__meta">
                   <h4>{tx.donorId?.name || 'Anonymous Donor'}</h4>
                   <p className="hint">
-                    {tx.donorId?.city || 'No city'} · {tx.status}
+                    Age: {getAge(tx.donorId?.birthdate) ?? 'N/A'} · {tx.donorId?.bloodGroup || '?'} · {tx.status}
                   </p>
+                  <p className="hint">
+                    Address: {tx.donorId?.city || 'No city'}
+                  </p>
+                  {tx.status === 'Accepted' ? (
+                    <p className="hint">Donor accepted. Call now to schedule the appointment.</p>
+                  ) : null}
                 </div>
                 <div className="inventory-row__contact">
                   <p className="inventory-row__contact-label">Contact</p>
-                  <p>{tx.donorId?.email || 'On file'}</p>
-                  <p className="hint">{new Date(tx.createdAt).toLocaleDateString()}</p>
-                </div>
+                  <p>{tx.donorId?.contactNumber || 'Phone not provided'}</p>
+                  <p className="hint">{tx.donorId?.email || 'On file'}</p>
+                    <p className="hint">{new Date(tx.createdAt).toLocaleDateString()}</p>
+                  </div>
                 <button className="btn btn--primary" style={{ padding: '0.5rem 0.9rem', fontSize: '0.85rem' }} onClick={async () => {
                   try {
                     await completeTransfer(tx._id);
@@ -353,9 +405,10 @@ const Hospital = () => {
                 </button>
               </div>
             ))}
-            {!transfers.filter(tx => tx.status === 'In Progress').length && <p className="hint">No active transfers yet. Click "Take units" above to claim a donor.</p>}
+            {!transfers.filter(tx => tx.status === 'In Progress' || tx.status === 'Accepted').length && <p className="hint">No active transfers yet. Click "Take units" above to claim a donor.</p>}
           </div>
         </div>
+
       </section>
     </main>
   );

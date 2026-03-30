@@ -5,16 +5,130 @@ const About = () => {
     <main className="page">
       <section className="hero hero--narrow">
         <p className="eyebrow">About BloodLink</p>
-        <h1>Connecting donors and hospitals to save lives.</h1>
+        <h1>Built by a student team focused on faster blood coordination.</h1>
         <p className="lead">
-          BloodLink is a real-time blood donation management platform that bridges
-          the gap between individual donors and hospitals. Our mission is to make
-          blood availability transparent, urgent requests visible, and clinical
-          transfers seamless.
+          We are Avadhoot Savle, Kavya Kaushik, and Krish Shah. BloodLink is our
+          attempt to make blood donation coordination more responsive, more
+          transparent, and easier for both donors and hospitals during urgent situations.
         </p>
       </section>
 
       <section className="grid grid--two" style={{ marginBottom: '2rem' }}>
+        <div className="panel panel--accent">
+          <div className="panel__header">
+            <div>
+              <p className="eyebrow">Our Team</p>
+              <h3>Who made BloodLink</h3>
+            </div>
+          </div>
+          <div className="inventory-list">
+            <div className="inventory-row">
+              <div className="inventory-row__meta">
+                <h4>Avadhoot Savle</h4>
+                <p className="hint">
+                  Worked on the concept, full-stack implementation, donor and hospital flows, and overall product direction.
+                </p>
+              </div>
+            </div>
+            <div className="inventory-row">
+              <div className="inventory-row__meta">
+                <h4>Kavya Kaushik</h4>
+                <p className="hint">
+                  Contributed to the planning, user experience decisions, and refining how the platform serves real donation scenarios.
+                </p>
+              </div>
+            </div>
+            <div className="inventory-row">
+              <div className="inventory-row__meta">
+                <h4>Krish Shah</h4>
+                <p className="hint">
+                  Helped shape the workflow, feature direction, and the practical hospital-donor coordination logic behind the system.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel__header">
+            <div>
+              <p className="eyebrow">How It Started</p>
+              <h3>Why we made BloodLink</h3>
+            </div>
+          </div>
+          <div className="inventory-list">
+            <div className="inventory-row">
+              <div className="inventory-row__meta">
+                <h4>Real problem, real urgency</h4>
+                <p className="hint">
+                  We wanted to solve a practical problem: hospitals often need blood quickly, but finding a matching available donor can still be slow and fragmented.
+                </p>
+              </div>
+            </div>
+            <div className="inventory-row">
+              <div className="inventory-row__meta">
+                <h4>Built for coordination</h4>
+                <p className="hint">
+                  BloodLink was designed to reduce that gap by connecting donors and hospitals in one workflow with clear status tracking and direct communication.
+                </p>
+              </div>
+            </div>
+            <div className="inventory-row">
+              <div className="inventory-row__meta">
+                <h4>Focused on response time</h4>
+                <p className="hint">
+                  The platform focuses on visibility, alerts, confirmation, logs, and follow-up so action can happen faster when time matters most.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid grid--two" style={{ marginBottom: '2rem' }}>
+        <div className="panel">
+          <div className="panel__header">
+            <div>
+              <p className="eyebrow">How It Was Made</p>
+              <h3>Building the BloodLink platform</h3>
+            </div>
+          </div>
+          <div className="inventory-list">
+            <div className="inventory-row">
+              <div className="inventory-row__meta">
+                <h4>Frontend</h4>
+                <p className="hint">
+                  We built the interface in React with a responsive layout for donors and hospitals, role-based dashboards, logs, OTP signup, and a cleaner donation workflow.
+                </p>
+              </div>
+            </div>
+            <div className="inventory-row">
+              <div className="inventory-row__meta">
+                <h4>Backend</h4>
+                <p className="hint">
+                  The backend uses Node.js and Express to handle login, donor status, hospital requests, transfer records, email notifications, badges, cooldown logic, and profile storage.
+                </p>
+              </div>
+            </div>
+            <div className="inventory-row">
+              <div className="inventory-row__meta">
+                <h4>Database and communication</h4>
+                <p className="hint">
+                  MongoDB Atlas stores users, requests, and donation history, while email flows are handled through Nodemailer for OTPs, hospital requests, and donor decision updates.
+                </p>
+              </div>
+            </div>
+            <div className="inventory-row">
+              <div className="inventory-row__meta">
+                <h4>Maps and location</h4>
+                <p className="hint">
+                  We used browser geolocation, address lookup, and map-based registration to help hospitals find the nearest suitable donors more quickly.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="panel">
           <div className="panel__header">
             <div>
@@ -57,7 +171,9 @@ const About = () => {
             </div>
           </div>
         </div>
+      </section>
 
+      <section className="grid grid--two" style={{ marginBottom: '2rem' }}>
         <div className="panel">
           <div className="panel__header">
             <div>

@@ -1,9 +1,43 @@
 import React, { useEffect, useState } from 'react';
 import useAppData from '../hooks/useAppData';
-import { updateDonorStatus, fetchTransfers, rejectTransfer } from '../services/mockApi';
+import { updateDonorStatus, fetchTransfers, rejectTransfer, acceptTransfer } from '../services/mockApi';
 
 const Donate = () => {
   const { session, setInventory } = useAppData();
+  const cooldownEndsAt = session?.nextEligibleDonationAt ? new Date(session.nextEligibleDonationAt) : null;
+  const isInCooldown = Boolean(cooldownEndsAt && cooldownEndsAt.getTime() > Date.now());
+  const donationGuidelines = [
+    {
+      stage: '24 hours before',
+      action: 'Drink extra water and avoid alcohol.',
+      reason: 'Good hydration helps maintain blood volume and reduces dizziness after donation.',
+    },
+    {
+      stage: 'Night before',
+      action: 'Sleep for at least 7 to 8 hours.',
+      reason: 'Proper rest lowers fatigue and helps your body recover faster.',
+    },
+    {
+      stage: 'Before leaving home',
+      action: 'Eat a light iron-rich meal such as fruits, sprouts, eggs, or roti with vegetables.',
+      reason: 'Donating on an empty stomach can make you feel weak or light-headed.',
+    },
+    {
+      stage: 'What to carry',
+      action: 'Bring a valid ID and keep your phone number active.',
+      reason: 'The hospital may need to verify identity or coordinate appointment timing.',
+    },
+    {
+      stage: 'At the hospital',
+      action: 'Wear comfortable sleeves and tell the staff about medicines or recent illness.',
+      reason: 'This helps the team assess eligibility and complete the process safely.',
+    },
+    {
+      stage: 'After donation',
+      action: 'Rest, hydrate again, and avoid heavy gym or smoking for a few hours.',
+      reason: 'Recovery steps reduce the chance of fainting and support safe post-donation recovery.',
+    },
+  ];
   const [donationForm, setDonationForm] = useState({
     isReadyToDonate: session?.isReadyToDonate || false,
     emergencyContact: session?.emergencyContact || false
@@ -40,10 +74,10 @@ const Donate = () => {
 
   useEffect(() => {
     setDonationForm({
-      isReadyToDonate: session?.isReadyToDonate || false,
+      isReadyToDonate: isInCooldown ? false : (session?.isReadyToDonate || false),
       emergencyContact: session?.emergencyContact || false
     });
-  }, [session]);
+  }, [isInCooldown, session]);
 
   const handleDonationSubmit = async (event) => {
     event.preventDefault();
@@ -109,60 +143,41 @@ const Donate = () => {
             <div>
               <p className="eyebrow">Donate</p>
               <h3>Manage your donor status</h3>
-              <p className="hint">Review your information and toggle your availability below.</p>
+              <p className="hint">Read the preparation checklist, then update your availability below.</p>
             </div>
             <div className="pill pill--ghost">Verified Donors Only</div>
           </div>
+
+          {isInCooldown ? (
+            <div className="panel panel--muted" style={{ marginBottom: '1rem', padding: '1rem 1.1rem' }}>
+              <p className="eyebrow" style={{ marginBottom: '0.35rem' }}>Cooldown Active</p>
+              <h4 style={{ marginBottom: '0.35rem' }}>You are temporarily not eligible to donate again.</h4>
+              <p className="hint">
+                Your last completed donation triggered the recovery period. You can mark yourself ready again after{' '}
+                {cooldownEndsAt?.toLocaleDateString()}.
+              </p>
+            </div>
+          ) : null}
           
-          <div className="inventory-list" style={{ marginBottom: '2rem' }}>
-            <div className="inventory-row">
-              <div className="inventory-row__meta">
-                <h4>Name</h4>
-                <p className="hint">{session?.name || 'Not provided'}</p>
-              </div>
-            </div>
-            <div className="inventory-row">
-              <div className="inventory-row__meta">
-                <h4>Email</h4>
-                <p className="hint">{session?.email || 'Not provided'}</p>
-              </div>
-            </div>
-            <div className="inventory-row">
-              <div className="inventory-row__meta">
-                <h4>Blood Group</h4>
-                <p className="hint">{session?.bloodGroup || 'Not provided'}</p>
-              </div>
-            </div>
-            <div className="inventory-row">
-              <div className="inventory-row__meta">
-                <h4>Gender</h4>
-                <p className="hint">{session?.gender || 'Not provided'}</p>
-              </div>
-            </div>
-            <div className="inventory-row">
-              <div className="inventory-row__meta">
-                <h4>Date of Birth</h4>
-                <p className="hint">
-                  {session?.birthdate ? new Date(session.birthdate).toLocaleDateString() : 'Not provided'}
-                </p>
-              </div>
-            </div>
-            <div className="inventory-row">
-              <div className="inventory-row__meta">
-                <h4>Registered Address</h4>
-                <p className="hint">{session?.city || 'Not provided'}</p>
-              </div>
-            </div>
-            {session?.location && (
-              <div className="inventory-row">
-                <div className="inventory-row__meta">
-                  <h4>Coordinates</h4>
-                  <p className="hint">
-                    Lat: {session.location.lat.toFixed(4)}, Lng: {session.location.lng.toFixed(4)}
-                  </p>
-                </div>
-              </div>
-            )}
+          <div className="guideline-table-wrap" style={{ marginBottom: '2rem' }}>
+            <table className="guideline-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>What to do</th>
+                  <th>Why it matters</th>
+                </tr>
+              </thead>
+              <tbody>
+                {donationGuidelines.map((item) => (
+                  <tr key={item.stage}>
+                    <td>{item.stage}</td>
+                    <td>{item.action}</td>
+                    <td>{item.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           <form className="form" onSubmit={handleDonationSubmit} style={{ borderTop: '1px solid #eaeaea', paddingTop: '1.5rem' }}>
@@ -172,13 +187,18 @@ const Donate = () => {
                   <input 
                     type="checkbox" 
                     checked={donationForm.isReadyToDonate} 
-                    onChange={(e) => setDonationForm({...donationForm, isReadyToDonate: e.target.checked})} 
+                    onChange={(e) => setDonationForm({...donationForm, isReadyToDonate: e.target.checked})}
+                    disabled={isInCooldown}
                   />
                   <span className="toggle-slider"></span>
                 </div>
                 <div style={{ flex: 1 }}>
                   <strong style={{ display: 'block', fontSize: '1rem', marginBottom: '0.2rem' }}>Ready to Donate</strong>
-                  <p className="hint" style={{ margin: 0, fontSize: '0.9rem' }}>Allows hospitals to see you in the active inventory.</p>
+                  <p className="hint" style={{ margin: 0, fontSize: '0.9rem' }}>
+                    {isInCooldown
+                      ? `Disabled during cooldown. Available again after ${cooldownEndsAt?.toLocaleDateString()}.`
+                      : 'Allows hospitals to see you in the active inventory.'}
+                  </p>
                 </div>
               </label>
               
@@ -235,23 +255,68 @@ const Donate = () => {
                   <p>{tx.hospitalId?.email || 'On file'}</p>
                   <p className="hint">{new Date(tx.createdAt).toLocaleDateString()}</p>
                 </div>
-                <button className="btn btn--ghost" style={{ color: '#dc2626', borderColor: '#fca5a5', padding: '0.5rem 0.9rem', fontSize: '0.85rem' }} onClick={async () => {
-                  if (!window.confirm('Reject this blood donation request? You will be made available again.')) return;
-                  try {
-                    await rejectTransfer(tx._id);
-                    const updated = await fetchTransfers(session.id);
-                    setTransfers(updated);
-                  } catch (err) {
-                    console.error('Failed to reject transfer:', err);
-                  }
-                }}>
-                  Reject
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button className="btn btn--primary" style={{ padding: '0.5rem 0.9rem', fontSize: '0.85rem' }} onClick={async () => {
+                    try {
+                      await acceptTransfer(tx._id);
+                      const updated = await fetchTransfers(session.id);
+                      setTransfers(updated);
+                    } catch (err) {
+                      console.error('Failed to accept transfer:', err);
+                    }
+                  }}>
+                    Accept
+                  </button>
+                  <button className="btn btn--ghost" style={{ color: '#dc2626', borderColor: '#fca5a5', padding: '0.5rem 0.9rem', fontSize: '0.85rem' }} onClick={async () => {
+                    if (!window.confirm('Reject this blood donation request? You will be made available again.')) return;
+                    try {
+                      await rejectTransfer(tx._id);
+                      const updated = await fetchTransfers(session.id);
+                      setTransfers(updated);
+                    } catch (err) {
+                      console.error('Failed to reject transfer:', err);
+                    }
+                  }}>
+                    Reject
+                  </button>
+                </div>
               </div>
             ))}
             {!transfers.filter(tx => tx.status === 'In Progress').length && <p className="hint">No hospitals have requested your blood yet.</p>}
           </div>
         </div>
+
+        <div className="panel" style={{ marginTop: '1.5rem' }}>
+          <div className="panel__header">
+            <div>
+              <p className="eyebrow">Accepted Requests</p>
+              <h3>Appointment coordination pending</h3>
+              <p className="hint">These hospitals can now call you and schedule the donation appointment.</p>
+            </div>
+            <div className="pill pill--success">Accepted</div>
+          </div>
+          <div className="inventory-list">
+            {transfers.filter(tx => tx.status === 'Accepted').map((tx) => (
+              <div key={tx._id} className="inventory-row">
+                <div className="pill pill--ghost">{tx.donorId?.bloodGroup || '?'}</div>
+                <div className="inventory-row__meta">
+                  <h4>{tx.hospitalId?.organization || tx.hospitalId?.name || 'Verified Hospital'}</h4>
+                  <p className="hint">
+                    {tx.hospitalId?.city || 'No city'} · Accepted
+                  </p>
+                  <p className="hint">The hospital will contact you to finalize the appointment.</p>
+                </div>
+                <div className="inventory-row__contact">
+                  <p className="inventory-row__contact-label">Contact</p>
+                  <p>{tx.hospitalId?.email || 'On file'}</p>
+                  <p className="hint">{new Date(tx.createdAt).toLocaleDateString()}</p>
+                </div>
+              </div>
+            ))}
+            {!transfers.filter(tx => tx.status === 'Accepted').length && <p className="hint">No accepted requests yet.</p>}
+          </div>
+        </div>
+
       </section>
     </main>
   );

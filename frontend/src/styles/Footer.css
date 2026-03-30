@@ -1,158 +1,134 @@
-/* --- Base Footer Styling --- */
 .footer-simple {
-    background-color: #1a1a1a; /* Dark background for modern look */
-    color: #f0f0f0; /* Light text color */
-    padding: 3rem 1.5rem;
-    font-family: Arial, sans-serif; /* Use a clean, simple font */
+  margin-top: auto;
+  padding: 2rem 0 1.2rem;
+  color: #f8ece3;
 }
 
 .footer-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: 1fr 1fr; /* Two main columns for desktop */
-    gap: 4rem;
-    padding-bottom: 2rem;
-    border-bottom: 1px solid #333; /* Subtle separator line */
+  width: min(1180px, calc(100% - 2rem));
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 2rem;
+  padding: 1.8rem;
+  border: 1px solid rgba(255, 214, 191, 0.08);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(235, 90, 65, 0.2), transparent 28%),
+    linear-gradient(145deg, #211112, #2d1717 55%, #381919);
+  box-shadow: 0 24px 50px rgba(28, 12, 10, 0.2);
 }
 
-/* --- Brand Section --- */
 .footer-brand {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+  display: grid;
+  gap: 0.9rem;
 }
 
 .footer-logo {
-    font-size: 1.8rem;
-    font-weight: bold;
-    letter-spacing: -0.5px;
-    color: #ffffff;
+  font-family: 'Fraunces', 'Georgia', serif;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  letter-spacing: -0.03em;
+  color: #fff8f4;
 }
 
 .logo-highlight {
-    color: #ff4d4d; /* Critical Red for 'Link' */
-    font-weight: 900;
+  color: #ff8d67;
 }
 
 .footer-tagline {
-    font-size: 0.95rem;
-    color: #ccc;
-    max-width: 300px;
+  margin: 0;
+  max-width: 420px;
+  color: rgba(255, 237, 228, 0.8);
+  line-height: 1.75;
 }
 
-/* --- Social Icons --- */
-.footer-social {
-    display: flex;
-    gap: 1rem;
-    margin-top: 0.5rem;
-}
-
-.social-icon {
-    color: #ccc;
-    font-size: 1.25rem;
-    transition: color 0.2s ease-in-out;
-}
-
-.social-icon:hover {
-    color: #ff4d4d; /* Hover effect with red */
-}
-
-/* --- Links Section --- */
 .footer-links {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Responsive links */
-    gap: 2rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
 }
 
 .footer-links h4 {
-    font-size: 1rem;
-    color: #ffffff;
-    margin-bottom: 0.8rem;
-    border-bottom: 2px solid transparent; /* Prepare for border effect */
-    display: inline-block;
-    padding-bottom: 2px;
+  margin: 0 0 0.8rem;
+  color: #fff6f1;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .footer-links ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.footer-links li {
-    margin-bottom: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.65rem;
 }
 
 .footer-links a {
-    color: #ccc;
-    text-decoration: none;
-    font-size: 0.9rem;
-    transition: color 0.2s;
+  color: rgba(255, 229, 218, 0.78);
+  text-decoration: none;
+  transition: color 0.18s ease, transform 0.18s ease;
 }
 
 .footer-links a:hover {
-    color: #ff4d4d;
+  color: #ffffff;
+  transform: translateX(2px);
 }
 
-.emergency-link a {
-    color: #ff4d4d !important; /* Make emergency link stand out */
-    font-weight: bold;
-}
-
-/* --- Bottom Bar (Copyright and Pills) --- */
 .footer-bottom-bar {
-    max-width: 1200px;
-    margin: 1.5rem auto 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap; /* Allow wrapping on small screens */
-    gap: 1rem;
+  width: min(1180px, calc(100% - 2rem));
+  margin: 0.9rem auto 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  color: rgba(80, 44, 40, 0.78);
+  font-size: 0.9rem;
 }
 
 .footer-pills {
-    display: flex;
-    gap: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 
 .footer-pill {
-    font-size: 0.75rem;
-    font-weight: bold;
-    padding: 0.4rem 0.8rem;
-    border-radius: 9999px; /* Pill shape */
-    background-color: #333;
-    color: #f0f0f0;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(137, 40, 33, 0.12);
+  background: rgba(255, 255, 255, 0.7);
+  color: #6b3a33;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .pill-verified {
-    background-color: #ff4d4d; /* Highlight pill */
-    color: #ffffff;
+  background: rgba(255, 242, 237, 0.88);
 }
 
-.footer-rights {
-    font-size: 0.8rem;
-    color: #999;
+.footer-center-text {
+  margin: 0;
 }
 
-/* --- Mobile Responsiveness --- */
-@media (max-width: 768px) {
-    .footer-container {
-        grid-template-columns: 1fr; /* Stack content on mobile */
-        gap: 2rem;
-    }
+@media (max-width: 820px) {
+  .footer-container {
+    width: min(100% - 1.5rem, 1180px);
+    grid-template-columns: 1fr;
+  }
 
-    .footer-links {
-        grid-template-columns: 1fr 1fr; /* Keep links side-by-side if possible */
-        gap: 1.5rem;
-    }
+  .footer-bottom-bar {
+    width: min(100% - 1.5rem, 1180px);
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
 
-    .footer-bottom-bar {
-        flex-direction: column-reverse; /* Put rights above pills */
-        align-items: flex-start;
-    }
-
-    .footer-rights {
-        margin-top: 1rem;
-    }
+@media (max-width: 560px) {
+  .footer-links {
+    grid-template-columns: 1fr;
+  }
 }
